@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <title>MSG Builder: AFOCS → TELEX</title>
+  <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { 
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, 'Noto Sans KR', Arial, sans-serif; 
+      margin: 24px; 
+    }
+    h1 { 
+      margin: 0 0 8px; 
+    }
+    .wrap { 
+      max-width: 880px; 
+    }
+    .row { 
+      display: grid; 
+      grid-template-columns: 140px 1fr; 
+      gap: 8px 12px; 
+      align-items: center; 
+      margin-bottom: 8px; 
+    }
+    input[type="text"], select, textarea { 
+      padding: 8px; 
+      width: 100%; 
+      box-sizing: border-box; 
+    }
+    textarea { 
+      resize: vertical; 
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; 
+    }
+    .hint { 
+      color: #555; 
+      font-size: 12px; 
+    }
+    .muted { 
+      color: #777; 
+      font-size: 13px; 
+    }
+    .files { 
+      margin: 8px 0 16px; 
+      padding: 8px; 
+      background: #f6f6f6; 
+      border-radius: 8px; 
+    }
+    .flash { 
+      padding: 10px 12px; 
+      border-radius: 8px; 
+      margin: 8px 0; 
+    }
+    .flash.ok { 
+      background: #e8f7ee; 
+      color: #136b2d; 
+      border: 1px solid #a6e3bd; 
+    }
+    .flash.error { 
+      background: #fdeeee; 
+      color: #8d1414; 
+      border: 1px solid #f4baba; 
+    }
+    .actions { 
+      margin-top: 16px; 
+      display: flex; 
+      gap: 12px; 
+      flex-wrap: wrap; 
+    }
+    button { 
+      padding: 10px 16px; 
+      border: none; 
+      border-radius: 8px; 
+      background: #0047ff; 
+      color: white; 
+      cursor: pointer; 
+    }
+    button:hover { 
+      background: #0037c6; 
+    }
+    .two { 
+      display: grid; 
+      grid-template-columns: 1fr 1fr; 
+      gap: 16px; 
+    }
+    .card { 
+      border: 1px solid #eee; 
+      border-radius: 10px; 
+      padding: 12px; 
+    }
+    .kbd { 
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; 
+      background:#eee; 
+      padding:2px 6px; 
+      border-radius:6px;
+    }
+    .file-radio { 
+      margin-bottom: 6px; 
+    }
+    button.active { 
+      background: #00aaff; 
+      font-weight: bold; 
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>MSG Builder</h1>
+    <!--
+    <div class="muted">입력 폴더: <span class="kbd">./afocs</span> → 출력 폴더: <span class="kbd">./telex</span></div>
+    -->
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for cat, msg in messages %}
+          <div class="flash {{cat}}">{{ msg }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <form method="post" action="/">
+      <div class="actions">
+        <button type="submit" name="preset" value="NRT" class="{% if session.preset == 'NRT' %}active{% endif %}">NRT</button>
+        <button type="submit" name="preset" value="HND" class="{% if session.preset == 'HND' %}active{% endif %}">HND</button>
+        <button type="button" onclick="location.reload()">🔄 새로 고침</button>
+        <!--
+        <button type="button" onclick="window.location.href='/open_afocs'">📂 afocs</button>
+        <button type="button" onclick="window.location.href='/open_telex'">📂 telex</button>
+        -->
+      </div>
+    </form>
+
+    <form method="post" action="/process">
+      <div class="card">
+        <label for="afocs_text">AFOCS 텍스트 붙여넣기</label>
+        <textarea id="afocs_text" name="afocs_text" rows="10">{{ form_data.afocs_text or '' }}</textarea>
+      </div>
+
+      <div class="card">
+        <div class="muted">TO 및 추가 입력</div>
+
+        <div class="two">
+          <div>
+            <h3>TO 주소</h3>
+            {% for i in range(1,7) %}
+              <div class="row">
+                <label for="to0{{i}}">TO0{{i}}</label>
+                <input id="to0{{i}}" name="to0{{i}}" type="text"
+                  value="{{ form_data.to_vals['to0' ~ i] if form_data.to_vals else defaults['to0' ~ i] }}">
+              </div>
+            {% endfor %}
+            <div class="hint">
+            ※ TO06에 알맞는 수신처 추가. <B>GMPFFOZ</B>: 1055, 1075, 1065 | <B>ICNFFOZ</B>: 177
+            </div>
+          </div>
+
+          <div>
+            <h3>추가 입력</h3>
+            <div class="row">
+              <label for="wgt">WGT (KG)</label>
+              <input id="wgt" name="wgt" type="text" placeholder="예: 1200 / 없으면 0" value="{{ form_data.wgt or '' }}">
+            </div>
+            <div class="row">
+              <label for="ldp">CGO</label>
+              <input id="ldp" name="ldp" type="text" placeholder="예: 3LDP / 없으면 NIL" value="{{ form_data.ldp or '' }}">
+            </div>
+            <div class="row">
+              <label for="name">NAME</label>
+              <input id="name" name="name" type="text" placeholder="본인 이름" value="{{ form_data.name or '' }}">
+            </div>
+            <div class="row">
+              <label for="bag_type">BAG Type</label>
+              <select id="bag_type" name="bag_type">
+                {% set bt = form_data.bag_type or 'AKE' %}
+                <option value="AKE" {% if bt == 'AKE' %}selected{% endif %}>AKE (LD3)</option>
+                <option value="ALF" {% if bt == 'ALF' %}selected{% endif %}>ALF (LD6)</option>
+                <option value="AKH" {% if bt == 'AKH' %}selected{% endif %}>AKH (LD3-45)</option>
+              </select>
+            </div>
+            <div class="row">
+              <label for="bag_ratio_ake">AKE Ratio</label>
+              <input id="bag_ratio_ake" name="bag_ratio_ake" type="text" value="{{ form_data.bag_ratio_ake or '40' }}">
+            </div>
+            <div class="row">
+              <label for="bag_ratio_akh">AKH Ratio</label>
+              <input id="bag_ratio_akh" name="bag_ratio_akh" type="text" value="{{ form_data.bag_ratio_akh or '30' }}">
+            </div>
+            <div class="hint">
+              ※ 항공기 기종이 321/32Q이면 BAG 타입은 AKH로 강제됩니다.
+            </div>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button type="submit" id="gen_button" onclick="genTelex()">✨ Generate</button>
+          <button type="button" id="copy_button" onclick="copyTelex()">📋 복사</button>
+        </div>
+
+        <label for="telex_output">TELEX 출력</label>
+        <textarea id="telex_output" rows="10" readonly>{{ result_text or '' }}</textarea>
+      </div>
+    </form>
+  </div>
+
+  <script>
+    function copyTelex() {
+      const telex = document.getElementById("telex_output");
+      telex.select();
+      document.execCommand("copy");
+
+      const btn = document.getElementById("copy_button");
+      btn.textContent = '✔️ 복사';
+      btn.classList.add("active");
+      setTimeout(() => {
+        btn.classList.remove("active");
+        btn.textContent = '📋 복사';
+      }, 1000);
+    }
+    
+    function genTelex() {
+      const btnGen = document.getElementById("gen_button");
+      btnGen.textContent = '✔️ Generate';
+      btnGen.style.fontWeight = 'normal';
+      btnGen.classList.add("active");
+      setTimeout(() => {
+        btnGen.classList.remove("active");
+        btnGen.textContent = '✨ Generate';
+      }, 1000);
+    }
+    
+  </script>
+  
+</body>
+</html>
